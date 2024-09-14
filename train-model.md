@@ -1,22 +1,35 @@
-# Training Data for Logo Detection
+# Training the Logo Detection Model
 
-This document outlines the steps taken to train the logo detection model using Google Colab. The `logo_detection.ipynb` file included in this repository serves as a reference.
+This document provides detailed steps to train a precise logo detection model using YOLOv8 on Google Colab. The `logo_detection.ipynb` notebook can be used as a reference.
 
-## Steps for Training the Model
+## Table of Contents
 
-### 1. Setting Up the Environment
+1. [Setting Up the Environment](#1-setting-up-the-environment)
+2. [Installing Required Libraries](#2-installing-required-libraries)
+3. [Importing the Dataset](#3-importing-the-dataset)
+4. [Data Augmentation for Better Generalization](#4-data-augmentation-for-better-generalization)
+5. [Training the Model](#5-training-the-model)
+6. [Plotting the Confusion Matrix and Results](#6-plotting-the-confusion-matrix-and-results)
+7. [Running Validation](#7-running-validation)
+8. [Testing on New Data](#8-testing-on-new-data)
+9. [Visualizing Predictions](#9-visualizing-predictions)
+10. [Downloading the Trained Model](#10-downloading-the-trained-model)
 
-Firstly, we need to change the runtime machine to ensure that GPU is used for training. We used Tesla T4 for our model.
+---
 
-#### Checking GPU Information
+## 1. Setting Up the Environment
+
+Ensure the GPU is enabled in Google Colab and check GPU information:
 
 ```bash
 !nvidia-smi
 ```
 
-### 2. Installing Required Libraries
+---
 
-Install `ultralytics` and check the version details. We used YOLOv8.2.67, the latest version.
+## 2. Installing Required Libraries
+
+Install `ultralytics` to use YOLOv8. This setup includes checking the installed version to ensure you are working with the latest release:
 
 ```bash
 %pip install ultralytics
@@ -24,68 +37,100 @@ import ultralytics
 ultralytics.checks()
 ```
 
-### 3. Importing the Dataset from Roboflow
+---
 
-Install the `roboflow` library and import the dataset.
+## 3. Importing the Dataset
+
+Import the dataset from Roboflow using the following steps. Ensure you replace `YOUR_API_KEY` with your actual API key from Roboflow.
 
 ```bash
 !pip install roboflow
 from roboflow import Roboflow
-rf = Roboflow(api_key="YOUR API KEY")
+rf = Roboflow(api_key="YOUR_API_KEY")
 project = rf.workspace("videoverse-s3lki").project("pc-e4adv")
 version = project.version(1)
 dataset = version.download("yolov8")
 ```
 
-Rename and set up the correct paths in `data.yaml` for the dataset.
+Make sure to correctly update paths in `data.yaml` as per the downloaded dataset.
 
-### 4. Training the Model
+---
 
-Train the model using the following command. We chose the medium model (`yolov8m.pt`) and set it to train for 20 epochs with an image size of 640.
+## 4. Data Augmentation for Better Generalization
 
-```bash
-!yolo task=detect mode=train model=yolov8m.pt data={dataset.location}/data.yaml epochs=20 imgsz=640
+Incorporating data augmentation techniques helps improve model performance by creating variations in the dataset:
+
+- **Flip**: Random horizontal flip.
+- **Rotation**: Rotating the image by a small degree.
+- **Scale**: Scaling the image up or down.
+- **Brightness**: Varying brightness for different lighting conditions.
+
+Modify the `data.yaml` file to include these augmentation settings:
+
+```yaml
+augment:
+  flip: true
+  rotation: 10  # degrees
+  scale: 0.2    # 20% scaling
+  brightness: 0.1  # Adjust brightness by 10%
 ```
 
-You can change the model according to the resources you have.
+---
 
-### 5. Plotting the Confusion Matrix
+## 5. Training the Model
 
-Plot the confusion matrix to check the data.
+Train the YOLOv8 medium model (`yolov8m.pt`) with custom hyperparameters for precise results. This includes 20 epochs, an image size of 640, and adjustments to learning rate and batch size for improved accuracy:
+
+```bash
+!yolo task=detect mode=train model=yolov8l.pt data={dataset.location}/data.yaml epochs=20 imgsz=640 batch=16 lr0=0.001 momentum=0.937 weight_decay=0.0005
+```
+
+- **`epochs=20`**: More epochs allow for better learning.
+- **`batch=16`**: Optimized batch size based on GPU memory.
+- **`lr0=0.001`**: Starting learning rate for faster convergence.
+- **`momentum=0.937`**: Default momentum for better weight updates.
+- **`weight_decay=0.0005`**: Helps prevent overfitting.
+
+---
+
+## 6. Plotting the Confusion Matrix and Results
+
+Once the model finishes training, plot the confusion matrix and results to evaluate how well the model distinguishes between logos:
 
 ```python
 from IPython.display import Image
 Image(filename=f"/content/runs/detect/train/confusion_matrix.png", width=600)
-```
 
-### 6. Checking the Results
-
-Check the training results.
-
-```python
-from IPython.display import Image
 Image(filename=f"/content/runs/detect/train/results.png", width=600)
 ```
 
-### 7. Running the Detection Test
+---
 
-Run the detect test using the trained model.
+## 7. Running Validation
+
+Run the validation step to check how well the model performs on unseen validation data:
 
 ```bash
 !yolo task=detect mode=val model=/content/runs/detect/train/weights/best.pt data={dataset.location}/data.yaml
 ```
 
-### 8. Running Against Test Data
+---
 
-Run the model against the test data.
+## 8. Testing on New Data
+
+Test the model on new test data to assess its real-world performance:
 
 ```bash
-!yolo task=detect mode=predict model=/content/runs/detect/train/weights/best.pt conf=0.5 source={dataset.location}/test/images
+!yolo task=detect mode=predict model=/content/runs/detect/train/weights/best.pt conf=0.4 source={dataset.location}/test/images
 ```
 
-### 9. Checking the Predicted Data
+- **`conf=0.4`**: Adjusting confidence threshold for better precision.
 
-Check the predicted data.
+---
+
+## 9. Visualizing Predictions
+
+To view the predicted results, you can use the following script. It will display all the predictions generated by the model:
 
 ```python
 import glob
@@ -96,6 +141,12 @@ for image_path in glob.glob('/content/runs/detect/predict/*.jpg'):
     print("\n")
 ```
 
-### 10. Downloading the Trained Model
+---
 
-The trained model is saved in the path `/runs/weights` as `best.pt`. Download it and rename it to `logo-detect.pt` for ease of use.
+## 10. Downloading the Trained Model
+
+Once training is complete, download the model. The best weights will be saved in the `runs/detect/train/weights/` folder. Rename the model to `logo-detect.pt`:
+
+```bash
+!mv /content/runs/detect/train/weights/best.pt /content/drive/MyDrive/logo-detect.pt
+```

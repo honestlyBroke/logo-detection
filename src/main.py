@@ -12,8 +12,8 @@ def main(video_path):
 
     # Define a mapping between the model's class names and the code's class names
     class_name_mapping = {
-        "PEPSI": "Pepsi-Logo-Detection",
-        "COCA-COLA": "Brands",
+        "PEPSI": "pepsi",
+        "COCA-COLA": "coke",
     }
 
     # Configure logger
